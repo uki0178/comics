@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="本棚">
+<title>本棚 — Kindle管理</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #1a1a1a;
+    --ink-2: #555;
+    --ink-3: #999;
+    --surface: #fff;
+    --surface-2: #f5f5f3;
+    --border: rgba(0,0,0,0.1);
+    --border-2: rgba(0,0,0,0.2);
+    --accent: #1D9E75;
+    --accent-light: #E1F5EE;
+    --accent-text: #085041;
+    --warn: #BA7517;
+    --warn-light: #FAEEDA;
+    --warn-text: #633806;
+    --danger-light: #FCEBEB;
+    --danger-text: #791F1F;
+    --danger-border: #F7C1C1;
+    --info-light: #E6F1FB;
+    --info-text: #0C447C;
+    --r-md: 8px;
+    --r-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f0f0ee;
+      --ink-2: #aaa;
+      --ink-3: #666;
+      --surface: #1c1c1e;
+      --surface-2: #2c2c2e;
+      --border: rgba(255,255,255,0.1);
+      --border-2: rgba(255,255,255,0.2);
+      --accent: #1D9E75;
+      --accent-light: #04342C;
+      --accent-text: #9FE1CB;
+      --warn-light: #412402;
+      --warn-text: #FAC775;
+      --danger-light: #501313;
+      --danger-text: #F09595;
+      --danger-border: #791F1F;
+      --info-light: #042C53;
+      --info-text: #85B7EB;
+    }
+  }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--surface-2);
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    max-width: 430px;
+    margin: 0 auto;
+    background: var(--surface-2);
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+
+  .header {
+    padding: 52px 16px 12px;
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .header-title { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .header-sub { font-size: 12px; color: var(--ink-3); }
+
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tab {
+    flex: 1; padding: 12px 0; text-align: center;
+    font-size: 13px; color: var(--ink-2);
+    border: none; background: none; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    -webkit-appearance: none;
+  }
+  .tab.active { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab-badge {
+    font-size: 10px; padding: 1px 5px;
+    background: var(--accent-light); color: var(--accent-text);
+    border-radius: 10px; font-weight: 600;
+  }
+  .tab-badge.warn { background: var(--warn-light); color: var(--warn-text); }
+
+  .section { padding: 0 12px; }
+  .section-label {
+    font-size: 11px; letter-spacing: 0.08em; color: var(--ink-3);
+    padding: 16px 4px 8px; text-transform: uppercase;
+  }
+
+  .series-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--r-lg);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .series-header {
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; user-select: none;
+  }
+  .series-cover {
+    width: 36px; height: 48px; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+    border: 0.5px solid var(--border);
+    background: var(--surface-2);
+  }
+  .series-info { flex: 1; min-width: 0; }
+  .series-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .series-author { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .series-meta { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+  .tag-digital { background: var(--info-light); color: var(--info-text); }
+  .tag-paper { background: var(--surface-2); color: var(--ink-2); border: 0.5px solid var(--border-2); }
+  .tag-vol { background: var(--surface-2); color: var(--ink-2); border: 0.5px solid var(--border); }
+  .tag-next { background: var(--accent-light); color: var(--accent-text); }
+
+  .expand-icon { font-size: 12px; color: var(--ink-3); transition: transform 0.2s; flex-shrink: 0; }
+  .series-card.expanded .expand-icon { transform: rotate(180deg); }
+
+  .series-detail {
+    border-top: 0.5px solid var(--border);
+    padding: 8px 14px;
+    display: none;
+  }
+  .series-card.expanded .series-detail { display: block; }
+
+  .vol-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .vol-row:last-of-type { border-bottom: none; }
+  .vol-num { font-size: 13px; color: var(--ink-3); min-width: 32px; }
+  .vol-title { font-size: 13px; flex: 1; }
+  .vol-status { font-size: 11px; padding: 2px 6px; border-radius: 3px; }
+  .status-have { background: var(--surface-2); color: var(--ink-3); border: 0.5px solid var(--border); }
+  .status-missing { background: var(--danger-light); color: var(--danger-text); border: 0.5px solid var(--danger-border); }
+
+  .next-release {
+    margin-top: 10px; padding: 8px 10px;
+    background: var(--accent-light);
+    border-radius: var(--r-md);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--accent-text);
+  }
+
+  .wish-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--r-lg);
+    margin-bottom: 8px;
+    padding: 12px 14px;
+  }
+  .wish-card.matched { border-color: var(--accent); }
+
+  .wish-header { display: flex; align-items: flex-start; gap: 10px; }
+  .wish-cover {
+    width: 36px; height: 48px; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+    border: 0.5px solid var(--border); background: var(--surface-2);
+  }
+  .wish-info { flex: 1; min-width: 0; }
+  .wish-title { font-size: 14px; font-weight: 600; }
+  .wish-author { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+
+  .price-block { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .price-now { font-size: 22px; font-weight: 600; }
+  .price-origin { font-size: 12px; color: var(--ink-3); text-decoration: line-through; }
+  .discount-pct { font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
+  .discount-ok { background: var(--accent-light); color: var(--accent-text); }
+  .discount-ng { background: var(--surface-2); color: var(--ink-3); border: 0.5px solid var(--border); }
+
+  .condition-row {
+    margin-top: 8px; display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--ink-3);
+  }
+  .cond-bar-wrap { flex: 1; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+  .cond-bar { height: 100%; border-radius: 2px; background: var(--border-2); transition: width 0.4s; }
+  .cond-bar.ok { background: var(--accent); }
+
+  .match-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+    background: var(--accent); color: #fff; margin-top: 8px;
+  }
+
+  .add-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px;
+    border: 0.5px dashed var(--border-2);
+    border-radius: var(--r-lg);
+    background: none; cursor: pointer; width: 100%;
+    color: var(--ink-3); font-size: 13px;
+    margin-bottom: 8px;
+    -webkit-appearance: none;
+  }
+
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35); z-index: 100;
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 16px 16px 0 0;
+    padding: 16px 16px 40px; width: 100%; max-width: 430px;
+    border-top: 0.5px solid var(--border);
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal-handle {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--border-2); margin: 0 auto 16px;
+  }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+  .form-row { margin-bottom: 12px; }
+  .form-label { font-size: 12px; color: var(--ink-3); margin-bottom: 4px; display: block; }
+  .form-input {
+    width: 100%; padding: 10px 12px;
+    border: 0.5px solid var(--border-2); border-radius: var(--r-md);
+    background: var(--surface-2); color: var(--ink); font-size: 15px;
+    -webkit-appearance: none; appearance: none;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .btn-cancel {
+    flex: 1; padding: 12px; border-radius: var(--r-md);
+    border: 0.5px solid var(--border-2); background: none;
+    color: var(--ink-2); font-size: 15px; cursor: pointer;
+  }
+  .btn-primary {
+    flex: 2; padding: 12px; border-radius: var(--r-md);
+    border: none; background: var(--ink);
+    color: var(--surface); font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+
+  .delete-btn {
+    font-size: 11px; color: var(--ink-3); padding: 2px 8px;
+    border: 0.5px solid var(--border); border-radius: 4px;
+    background: none; cursor: pointer; margin-top: 10px; display: block;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <span class="header-title">本棚</span>
+    <span class="header-sub">あなただけのKindle管理</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('mylist', this)">
+      マイリスト <span class="tab-badge" id="badge-my">3</span>
+    </button>
+    <button class="tab" onclick="switchTab('wish', this)">
+      ウィッシュ <span class="tab-badge warn" id="badge-wish">1</span>
+    </button>
+  </div>
+
+  <div id="pane-mylist">
+    <div class="section">
+      <div class="section-label">シリーズ</div>
+      <div id="series-list"></div>
+      <button class="add-btn" onclick="openModal('series')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        シリーズを追加
+      </button>
+    </div>
+  </div>
+
+  <div id="pane-wish" style="display:none">
+    <div class="section">
+      <div class="section-label">監視中</div>
+      <div id="wish-list"></div>
+      <button class="add-btn" onclick="openModal('wish')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        作品を追加
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop" onclick="backdropClose(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'honbana_v1';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData(); }
+  catch { return defaultData(); }
+}
+function save(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function defaultData() {
+  return {
+    series: [
+      { id: 1, title: '葬送のフリーレン', author: '山田鐘人', emoji: '⚔️', type: 'digital', haveVol: 12, totalVol: 14, nextDate: '2025-08-09', nextVol: 13, missingVols: [11, 12] },
+      { id: 2, title: 'ダンジョン飯', author: '九井諒子', emoji: '🍳', type: 'paper', haveVol: 14, totalVol: 14, nextDate: null, nextVol: null, missingVols: [] },
+      { id: 3, title: 'ブルーピリオド', author: '山口つばさ', emoji: '🎨', type: 'digital', haveVol: 15, totalVol: 17, nextDate: '2025-07-23', nextVol: 16, missingVols: [14] }
+    ],
+    wishes: [
+      { id: 1, title: '鬼滅の刃 全巻セット', author: '吾峠呼世晴', emoji: '🗡️', currentPrice: 5980, origPrice: 11440, threshold: 40 },
+      { id: 2, title: 'チェンソーマン', author: '藤本タツキ', emoji: '⛓️', currentPrice: 3200, origPrice: 3520, threshold: 30 },
+      { id: 3, title: '進撃の巨人 全巻', author: '諫山創', emoji: '🏰', currentPrice: 8800, origPrice: 14960, threshold: 50 }
+    ]
+  };
+}
+
+let state = load();
+
+function formatDate(str) {
+  if (!str) return '';
+  const d = new Date(str);
+  return `${d.getMonth()+1}月${d.getDate()}日`;
+}
+function calcDiscount(cur, orig) {
+  return Math.round((1 - cur / orig) * 100);
+}
+
+function renderSeries() {
+  const el = document.getElementById('series-list');
+  if (!state.series.length) {
+    el.innerHTML = '<p style="text-align:center;padding:24px;color:var(--ink-3);font-size:13px;">シリーズがありません</p>';
+    document.getElementById('badge-my').textContent = '0';
+    return;
+  }
+  document.getElementById('badge-my').textContent = state.series.length;
+  el.innerHTML = state.series.map(s => {
+    const typeTag = s.type === 'digital'
+      ? '<span class="tag tag-digital">電子書籍</span>'
+      : '<span class="tag tag-paper">紙</span>';
+    const nextTag = s.nextDate
+      ? `<span class="tag tag-next">次巻 ${formatDate(s.nextDate)}</span>` : '';
+    const volRows = Array.from({length: s.totalVol}, (_, i) => i + 1).map(v => {
+      const missing = s.missingVols.includes(v);
+      return `<div class="vol-row">
+        <span class="vol-num">${v}巻</span>
+        <span class="vol-title">${s.title} ${v}</span>
+        <span class="vol-status ${missing ? 'status-missing' : 'status-have'}">${missing ? '未所持' : '所持済'}</span>
+      </div>`;
+    }).join('');
+    const nextBlock = s.nextDate ? `<div class="next-release">📅 第${s.nextVol}巻 発売予定: <strong>${formatDate(s.nextDate)}</strong></div>` : '';
+    return `<div class="series-card" id="sc-${s.id}">
+      <div class="series-header" onclick="toggleCard(${s.id})">
+        <div class="series-cover">${s.emoji}</div>
+        <div class="series-info">
+          <div class="series-title">${s.title}</div>
+          <div class="series-author">${s.author}</div>
+          <div class="series-meta">
+            ${typeTag}
+            <span class="tag tag-vol">${s.haveVol}/${s.totalVol}巻</span>
+            ${nextTag}
+          </div>
+        </div>
+        <div class="expand-icon">▾</div>
+      </div>
+      <div class="series-detail">
+        ${volRows}
+        ${nextBlock}
+        <button class="delete-btn" onclick="deleteSeries(${s.id}, event)">削除する</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderWishes() {
+  const el = document.getElementById('wish-list');
+  if (!state.wishes.length) {
+    el.innerHTML = '<p style="text-align:center;padding:24px;color:var(--ink-3);font-size:13px;">監視中の作品がありません</p>';
+    document.getElementById('badge-wish').textContent = '0';
+    return;
+  }
+  let matchCount = 0;
+  el.innerHTML = state.wishes.map(w => {
+    const disc = calcDiscount(w.currentPrice, w.origPrice);
+    const matched = disc >= w.threshold;
+    if (matched) matchCount++;
+    const barW = Math.min(100, Math.round(disc / w.threshold * 100));
+    const matchBadge = matched ? `<div class="match-badge">✓ 条件達成中 — 購入タイミングです</div>` : '';
+    return `<div class="wish-card ${matched ? 'matched' : ''}">
+      <div class="wish-header">
+        <div class="wish-cover">${w.emoji}</div>
+        <div class="wish-info">
+          <div class="wish-title">${w.title}</div>
+          <div class="wish-author">${w.author}</div>
+        </div>
+      </div>
+      <div class="price-block">
+        <span class="price-now">¥${w.currentPrice.toLocaleString()}</span>
+        <span class="price-origin">¥${w.origPrice.toLocaleString()}</span>
+        <span class="discount-pct ${matched ? 'discount-ok' : 'discount-ng'}">${disc}%OFF</span>
+      </div>
+      <div class="condition-row">
+        <span>${disc}%</span>
+        <div class="cond-bar-wrap"><div class="cond-bar ${matched ? 'ok' : ''}" style="width:${barW}%"></div></div>
+        <span>目標 ${w.threshold}%</span>
+      </div>
+      ${matchBadge}
+      <button class="delete-btn" onclick="deleteWish(${w.id}, event)">削除する</button>
+    </div>`;
+  }).join('');
+  const badge = document.getElementById('badge-wish');
+  badge.textContent = matchCount || state.wishes.length;
+  badge.className = 'tab-badge' + (matchCount ? ' warn' : '');
+}
+
+function toggleCard(id) {
+  document.getElementById('sc-' + id).classList.toggle('expanded');
+}
+
+function deleteSeries(id, e) {
+  e.stopPropagation();
+  if (!confirm('このシリーズを削除しますか？')) return;
+  state.series = state.series.filter(s => s.id !== id);
+  save(state); renderSeries();
+}
+function deleteWish(id, e) {
+  e.stopPropagation();
+  if (!confirm('このウィッシュを削除しますか？')) return;
+  state.wishes = state.wishes.filter(w => w.id !== id);
+  save(state); renderWishes();
+}
+
+function switchTab(tab, el) {
+  document.getElementById('pane-mylist').style.display = tab === 'mylist' ? '' : 'none';
+  document.getElementById('pane-wish').style.display = tab === 'wish' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+let currentModal = '';
+function openModal(type) {
+  currentModal = type;
+  document.getElementById('modal-backdrop').classList.add('open');
+  if (type === 'series') {
+    document.getElementById('modal-title').textContent = 'シリーズを追加';
+    document.getElementById('modal-body').innerHTML = `
+      <div class="form-row"><label class="form-label">タイトル</label><input class="form-input" id="f-title" placeholder="葬送のフリーレン"></div>
+      <div class="form-row"><label class="form-label">作者</label><input class="form-input" id="f-author" placeholder="山田鐘人"></div>
+      <div class="form-row"><label class="form-label">形式</label>
+        <select class="form-input" id="f-type"><option value="digital">電子書籍</option><option value="paper">紙</option></select>
+      </div>
+      <div class="form-row"><label class="form-label">所持巻数</label><input class="form-input" id="f-have" type="number" placeholder="12" min="0"></div>
+      <div class="form-row"><label class="form-label">全巻数（既刊）</label><input class="form-input" id="f-total" type="number" placeholder="14" min="1"></div>
+      <div class="form-row"><label class="form-label">次巻発売日（任意）</label><input class="form-input" id="f-next-date" type="date"></div>
+      <div class="form-row"><label class="form-label">次巻番号（任意）</label><input class="form-input" id="f-next-vol" type="number" placeholder="13" min="1"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+        <button class="btn-primary" onclick="addSeries()">追加する</button>
+      </div>`;
+  } else {
+    document.getElementById('modal-title').textContent = 'ウィッシュリストに追加';
+    document.getElementById('modal-body').innerHTML = `
+      <div class="form-row"><label class="form-label">タイトル</label><input class="form-input" id="f-title" placeholder="ワンピース 全巻セット"></div>
+      <div class="form-row"><label class="form-label">作者</label><input class="form-input" id="f-author" placeholder="尾田栄一郎"></div>
+      <div class="form-row"><label class="form-label">現在の価格（円）</label><input class="form-input" id="f-price" type="number" placeholder="5980"></div>
+      <div class="form-row"><label class="form-label">定価（円）</label><input class="form-input" id="f-orig" type="number" placeholder="11440"></div>
+      <div class="form-row"><label class="form-label">通知する割引率（%）</label><input class="form-input" id="f-thresh" type="number" placeholder="40" min="1" max="90"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+        <button class="btn-primary" onclick="addWish()">追加する</button>
+      </div>`;
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+}
+function backdropClose(e) {
+  if (e.target === document.getElementById('modal-backdrop')) closeModal();
+}
+
+function addSeries() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  state.series.push({
+    id: Date.now(),
+    title,
+    author: document.getElementById('f-author').value.trim() || '',
+    emoji: '📚',
+    type: document.getElementById('f-type').value,
+    haveVol: parseInt(document.getElementById('f-have').value) || 0,
+    totalVol: parseInt(document.getElementById('f-total').value) || 1,
+    nextDate: document.getElementById('f-next-date').value || null,
+    nextVol: parseInt(document.getElementById('f-next-vol').value) || null,
+    missingVols: []
+  });
+  save(state); closeModal(); renderSeries();
+}
+
+function addWish() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  state.wishes.push({
+    id: Date.now(),
+    title,
+    author: document.getElementById('f-author').value.trim() || '',
+    emoji: '📖',
+    currentPrice: parseInt(document.getElementById('f-price').value) || 0,
+    origPrice: parseInt(document.getElementById('f-orig').value) || 1,
+    threshold: parseInt(document.getElementById('f-thresh').value) || 30
+  });
+  save(state); closeModal(); renderWishes();
+}
+
+renderSeries();
+renderWishes();
+</script>
+</body>
+</html>
