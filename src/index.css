@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --accent: #1D9E75;
+  --accent-light: #E1F5EE;
+  --accent-text: #085041;
+}
+
+body {
+  font-family: -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+}
